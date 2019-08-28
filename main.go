@@ -9,34 +9,52 @@ import (
 	"github.com/urfave/cli"
 )
 
-func store(c *api.Client, secrets string) (string, error) {
+func Store2(c *api.Client, secrets string) (string, error) {
 	// Wrap arbitrary json in Vault and return single-use wrapping token
 	// To wrap, user must have access to create a 2-use token, login w/ the token
 	// and write secrets to the token's cubbyhole
 	fmt.Println("storing", secrets)
 	// Create 2-use token
 	tcr := &api.TokenCreateRequest{
-		Metadata:       map[string]string{"foo": "f", "bar": "b"},
-		TTL:            "24h",
-		ExplicitMaxTTL: "24h",
-		NoParent:       true,
-		// NoDefaultPolicy: true,
-		NumUses: 2,
-		// Type:    "service",
+		Metadata:        map[string]string{"foo": "f", "bar": "b"},
+		TTL:             "24h",
+		ExplicitMaxTTL:  "24h",
+		NoParent:        true,
+		NoDefaultPolicy: true,
+		NumUses:         2,
+		Type:            "service",
 	}
-	wrapper, err := c.Auth().Token().Create(tcr)
+	wrapsecret, err := c.Auth().Token().Create(tcr)
 	if err != nil {
 		fmt.Println(err)
 		return "", err
 	}
-	fmt.Println(wrapper.Data)
-	token := ""
+  token := wrapsecret.Auth.ClientToken
+  // Update client w/ new token
+  c.SetToken(token)
+  // Wrap data in cubbyhole
+  // c.Logical().Write("cubbyhole/response", )
 	return token, err
 }
 
-func retrieve() string {
+func Store(c *api.Client, secrets string) (string, error) {
+	// Wrap arbitrary json in Vault and return single-use wrapping token
+	fmt.Println("storing", secrets)
+  cubbyPath := "cubbyhole/self-destructing-secrets/"
+  // Wrap data in cubbyhole
+  c.SetWrappingLookupFunc(wrapItUp)
+  c.Logical().Write(cubbyPath, data map[string]interface{})
+	return token, err
+}
+
+func Retrieve() string {
 	// Unwrap data using a single-use wrapping token
 	return ""
+}
+
+func wrapItUp(operation, path string) string {
+  wrapTime := "24h"
+  return wrapTime
 }
 
 func main() {
@@ -92,7 +110,7 @@ func main() {
 				// Get secrets ready to store
 				secrets = c.Args().Get(0)
 
-				temp, err := store(client, secrets)
+				temp, err := Store(client, secrets)
 				if err != nil {
 					return err
 				}
