@@ -1,15 +1,19 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/hashicorp/vault/api"
 	"github.com/urfave/cli"
 )
 
 func Store2(c *api.Client, secrets string) (string, error) {
+	// Temporary function that i'm using to test during dev..
 	// Wrap arbitrary json in Vault and return single-use wrapping token
 	// To wrap, user must have access to create a 2-use token, login w/ the token
 	// and write secrets to the token's cubbyhole
@@ -29,22 +33,28 @@ func Store2(c *api.Client, secrets string) (string, error) {
 		fmt.Println(err)
 		return "", err
 	}
-  token := wrapsecret.Auth.ClientToken
-  // Update client w/ new token
-  c.SetToken(token)
-  // Wrap data in cubbyhole
-  // c.Logical().Write("cubbyhole/response", )
+	token := wrapsecret.Auth.ClientToken
+	// Update client w/ new token
+	c.SetToken(token)
+	// Wrap data in cubbyhole
+	// c.Logical().Write("cubbyhole/response", )
 	return token, err
 }
 
-func Store(c *api.Client, secrets string) (string, error) {
-	// Wrap arbitrary json in Vault and return single-use wrapping token
+func Store(c *api.Client, secrets map[string]interface{}) (string, error) {
+	// Store key/value inputs in Vault and return single-use wrapping token
 	fmt.Println("storing", secrets)
-  cubbyPath := "cubbyhole/self-destructing-secrets/"
-  // Wrap data in cubbyhole
-  c.SetWrappingLookupFunc(wrapItUp)
-  c.Logical().Write(cubbyPath, data map[string]interface{})
-	return token, err
+	cubbyPath := "cubbyhole/abcde"
+	// Wrap data in cubbyhole
+	c.SetWrappingLookupFunc(wrapItUp)
+
+	a, err := c.Logical().Write(cubbyPath, secrets)
+	if err != nil {
+		return "", err
+	}
+	fmt.Printf("%+v", a)
+	//token := a.Auth.ClientToken
+	return "", nil
 }
 
 func Retrieve() string {
@@ -53,8 +63,8 @@ func Retrieve() string {
 }
 
 func wrapItUp(operation, path string) string {
-  wrapTime := "24h"
-  return wrapTime
+	wrapTime := "24h"
+	return wrapTime
 }
 
 func main() {
@@ -75,15 +85,42 @@ func main() {
 					Value: "https://127.0.0.1:8200",
 					Usage: "Vault service hostname/IP and port",
 				},
+				cli.StringSliceFlag{
+					Name:  "secret, s",
+					Usage: "Comma-separated name:secret pair",
+				},
 				cli.BoolFlag{
 					Name:  "insecure, k",
 					Usage: "Allow invalid SSL cert on Vault service",
 				},
 			},
 			Action: func(c *cli.Context) error {
-				var secrets string
+				secrets := make(map[string]interface{})
 
-				// Create Vault API config
+				// Require at least one secret to store
+				if len(c.StringSlice("secret")) == 0 {
+					return errors.New("At least one comma-separated key,value secret is required to store")
+				}
+
+				fmt.Println(c.StringSlice("secret"))
+
+				// Create secrets map to write to vault
+				for i, sec := range c.StringSlice("secret") {
+					kv := strings.Split(sec, ",")
+					if len(kv) > 2 {
+						// There were too many commas to split on. Error for now...
+						return errors.New("Secret key,value cannot contain more than one comma.")
+					} else if len(kv) == 1 {
+						// There was no comma as key,value separator; treat as secret
+						var v interface{} = kv[0]
+						secrets[strconv.Itoa(i)] = v
+					} else {
+						var v interface{} = kv[1]
+						secrets[kv[0]] = v
+					}
+				}
+
+				// Create Vault client from API config
 				config := api.DefaultConfig()
 				// Populate config from env
 				err := config.ReadEnvironment()
@@ -101,15 +138,11 @@ func main() {
 					}
 				}
 
+				// Create Vault client and store secrets
 				client, err := api.NewClient(config)
-				fmt.Println(client.Token())
 				if err != nil {
 					return err
 				}
-
-				// Get secrets ready to store
-				secrets = c.Args().Get(0)
-
 				temp, err := Store(client, secrets)
 				if err != nil {
 					return err
