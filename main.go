@@ -12,12 +12,11 @@ import (
 	"github.com/urfave/cli"
 )
 
-func Store2(c *api.Client, secrets string) (string, error) {
-	// Temporary function that i'm using to test during dev..
+func Store(c *api.Client, cubbyPath string, secrets map[string]interface{}) (string, error) {
 	// Wrap arbitrary json in Vault and return single-use wrapping token
 	// To wrap, user must have access to create a 2-use token, login w/ the token
 	// and write secrets to the token's cubbyhole
-	fmt.Println("storing", secrets)
+
 	// Create 2-use token
 	tcr := &api.TokenCreateRequest{
 		Metadata:        map[string]string{"foo": "f", "bar": "b"},
@@ -33,28 +32,15 @@ func Store2(c *api.Client, secrets string) (string, error) {
 		fmt.Println(err)
 		return "", err
 	}
-	token := wrapsecret.Auth.ClientToken
+	wrapToken := wrapsecret.Auth.ClientToken
 	// Update client w/ new token
-	c.SetToken(token)
-	// Wrap data in cubbyhole
-	// c.Logical().Write("cubbyhole/response", )
-	return token, err
-}
-
-func Store(c *api.Client, secrets map[string]interface{}) (string, error) {
-	// Store key/value inputs in Vault and return single-use wrapping token
-	fmt.Println("storing", secrets)
-	cubbyPath := "cubbyhole/abcde"
-	// Wrap data in cubbyhole
-	c.SetWrappingLookupFunc(wrapItUp)
-
-	a, err := c.Logical().Write(cubbyPath, secrets)
+	c.SetToken(wrapToken)
+	// Write data to cubbyhole
+	_, err = c.Logical().Write(cubbyPath, secrets)
 	if err != nil {
 		return "", err
 	}
-	fmt.Printf("%+v", a)
-	//token := a.Auth.ClientToken
-	return "", nil
+	return wrapToken, err
 }
 
 func Retrieve() string {
@@ -62,16 +48,12 @@ func Retrieve() string {
 	return ""
 }
 
-func wrapItUp(operation, path string) string {
-	wrapTime := "24h"
-	return wrapTime
-}
-
 func main() {
 	// Handle CLI input/opts
 	app := cli.NewApp()
 	app.Name = "destruct"
 	app.Usage = "Store or access Vault secrets that will auto-delete after being accessed."
+	cubbyPath := "cubbyhole/" + app.Name
 
 	app.Commands = []cli.Command{
 		{
@@ -101,8 +83,6 @@ func main() {
 				if len(c.StringSlice("secret")) == 0 {
 					return errors.New("At least one comma-separated key,value secret is required to store")
 				}
-
-				fmt.Println(c.StringSlice("secret"))
 
 				// Create secrets map to write to vault
 				for i, sec := range c.StringSlice("secret") {
@@ -143,7 +123,7 @@ func main() {
 				if err != nil {
 					return err
 				}
-				temp, err := Store(client, secrets)
+				temp, err := Store(client, cubbyPath, secrets)
 				if err != nil {
 					return err
 				}
