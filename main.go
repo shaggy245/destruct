@@ -43,12 +43,16 @@ func Store(c *api.Client, cubbyPath string, secrets map[string]interface{}) (str
 	return wrapToken, err
 }
 
-func Retrieve() string {
-	// Unwrap data using a single-use wrapping token
-	return ""
+func Retrieve(c *api.Client, cubbyPath string) (map[string]interface{}, error) {
+	// Retrieve data stored in cubbyPath for the supplied Vault client
+	secrets, err := c.Logical().Read(cubbyPath)
+	if err != nil {
+		return nil, err
+	}
+	return secrets.Data, nil
 }
 
-func createVaultClient(vAddress string, insecure bool) (*api.Client, error) {
+func createVaultClient(vAddress string, insecure bool, token string) (*api.Client, error) {
 	// Create Vault client from API config
 	config := api.DefaultConfig()
 	// Populate config from env
@@ -66,10 +70,14 @@ func createVaultClient(vAddress string, insecure bool) (*api.Client, error) {
 			return nil, err
 		}
 	}
+
 	// Create and return Vault client
 	client, err := api.NewClient(config)
 	if err != nil {
 		return nil, err
+	}
+	if token != "" {
+		client.SetToken(token)
 	}
 	return client, nil
 }
@@ -127,7 +135,7 @@ func main() {
 				}
 
 				// Create Vault client and store secrets
-				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"))
+				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), "")
 				if err != nil {
 					return err
 				}
@@ -160,6 +168,16 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				fmt.Println("Retrieving with token: ", c.Args().First())
+				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), c.String("token"))
+				if err != nil {
+					return err
+				}
+
+				retrievedSecrets, err := Retrieve(client, cubbyPath)
+				if err != nil {
+					return err
+				}
+				fmt.Println(retrievedSecrets)
 				return nil
 			},
 		},
