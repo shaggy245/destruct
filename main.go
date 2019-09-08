@@ -19,7 +19,7 @@ func Store(c *api.Client, cubbyPath string, secrets map[string]interface{}) (str
 
 	// Create 2-use token
 	tcr := &api.TokenCreateRequest{
-		Metadata:        map[string]string{"foo": "f", "bar": "b"},
+		Metadata:        map[string]string{"created by": "destruct"},
 		TTL:             "24h",
 		ExplicitMaxTTL:  "24h",
 		NoParent:        true,
@@ -46,6 +46,32 @@ func Store(c *api.Client, cubbyPath string, secrets map[string]interface{}) (str
 func Retrieve() string {
 	// Unwrap data using a single-use wrapping token
 	return ""
+}
+
+func createVaultClient(vAddress string, insecure bool) (*api.Client, error) {
+	// Create Vault client from API config
+	config := api.DefaultConfig()
+	// Populate config from env
+	err := config.ReadEnvironment()
+	if err != nil {
+		return nil, err
+	}
+	// Overwrite config elements based on cli input
+	if vAddress != "" {
+		config.Address = vAddress
+	}
+	if insecure {
+		err := config.ConfigureTLS(&api.TLSConfig{Insecure: true})
+		if err != nil {
+			return nil, err
+		}
+	}
+	// Create and return Vault client
+	client, err := api.NewClient(config)
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
 }
 
 func main() {
@@ -100,34 +126,16 @@ func main() {
 					}
 				}
 
-				// Create Vault client from API config
-				config := api.DefaultConfig()
-				// Populate config from env
-				err := config.ReadEnvironment()
-				if err != nil {
-					return err
-				}
-				// Overwrite config elements based on cli input
-				if c.String("vault-addr") != "" {
-					config.Address = c.String("vault-addr")
-				}
-				if c.Bool("insecure") {
-					err := config.ConfigureTLS(&api.TLSConfig{Insecure: true})
-					if err != nil {
-						return err
-					}
-				}
-
 				// Create Vault client and store secrets
-				client, err := api.NewClient(config)
+				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"))
 				if err != nil {
 					return err
 				}
-				temp, err := Store(client, cubbyPath, secrets)
+				tempToken, err := Store(client, cubbyPath, secrets)
 				if err != nil {
 					return err
 				}
-				fmt.Println(temp)
+				fmt.Println(tempToken)
 				return nil
 			},
 		},
