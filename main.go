@@ -167,7 +167,6 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				fmt.Println("Retrieving with token: ", c.Args().First())
 				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), c.String("token"))
 				if err != nil {
 					return err
