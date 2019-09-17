@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/hashicorp/vault/api"
@@ -94,7 +93,7 @@ func main() {
 			Name:      "store",
 			Aliases:   []string{"s"},
 			Usage:     "Store secrets",
-			ArgsUsage: "[jsonified secrets]",
+			ArgsUsage: "secrets",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "vault-addr, a",
@@ -114,25 +113,13 @@ func main() {
 				secrets := make(map[string]interface{})
 
 				// Require at least one secret to store
-				if len(c.StringSlice("secret")) == 0 {
+				if len(c.Args()) == 0 {
 					return errors.New("At least one comma-separated key,value secret is required to store")
 				}
 
 				// Create secrets map to write to vault
-				for i, sec := range c.StringSlice("secret") {
-					kv := strings.Split(sec, ",")
-					if len(kv) > 2 {
-						// There were too many commas to split on. Error for now...
-						return errors.New("Secret key,value cannot contain more than one comma.")
-					} else if len(kv) == 1 {
-						// There was no comma as key,value separator; treat as secret
-						var v interface{} = kv[0]
-						secrets[strconv.Itoa(i)] = v
-					} else {
-						var v interface{} = kv[1]
-						secrets[kv[0]] = v
-					}
-				}
+				var v interface{} = strings.Join(c.Args(), " ")
+				secrets[app.Name] = v
 
 				// Create Vault client and store secrets
 				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), "")
@@ -148,9 +135,10 @@ func main() {
 			},
 		},
 		{
-			Name:    "retrieve",
-			Aliases: []string{"r"},
-			Usage:   "Retrieve secrets",
+			Name:      "retrieve",
+			Aliases:   []string{"r"},
+			Usage:     "Retrieve secrets",
+			ArgsUsage: "token",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "vault-addr, a",
@@ -161,13 +149,12 @@ func main() {
 					Name:  "insecure, k",
 					Usage: "Allow invalid SSL cert on Vault service",
 				},
-				cli.StringFlag{
-					Name:  "token, t",
-					Usage: "Single-use Vault `token`",
-				},
 			},
 			Action: func(c *cli.Context) error {
-				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), c.String("token"))
+				if c.NArg() == 0 {
+					return errors.New("Token is required")
+				}
+				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), c.Args().Get(0))
 				if err != nil {
 					return err
 				}
