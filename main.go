@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -100,10 +101,6 @@ func main() {
 					Value: "https://127.0.0.1:8200",
 					Usage: "Vault service hostname/IP and port",
 				},
-				cli.StringSliceFlag{
-					Name:  "secret, s",
-					Usage: "Comma-separated name:secret pair",
-				},
 				cli.BoolFlag{
 					Name:  "insecure, k",
 					Usage: "Allow invalid SSL cert on Vault service",
@@ -111,14 +108,31 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				secrets := make(map[string]interface{})
+				var secretsIn string
 
 				// Require at least one secret to store
-				if len(c.Args()) == 0 {
-					return errors.New("At least one comma-separated key,value secret is required to store")
+				// This can be either piped input or arg input
+				info, err := os.Stdin.Stat()
+				if err != nil {
+					return err
+				}
+				// Verify that input is either..
+				// from an os.ModeCharDevice and is not empty
+				// or was included as a cli arg
+				if (info.Mode()&os.ModeCharDevice != 0 || info.Size() <= 0) && len(c.Args()) == 0 {
+					return errors.New("Secrets input is required.")
+				} else if info.Size() > 0 {
+					readIn, err := ioutil.ReadAll(os.Stdin)
+					if err != nil {
+						log.Fatal(err)
+					}
+					secretsIn = strings.TrimSuffix(string(readIn), "\n")
+				} else {
+					secretsIn = strings.Join(c.Args(), " ")
 				}
 
 				// Create secrets map to write to vault
-				var v interface{} = strings.Join(c.Args(), " ")
+				var v interface{} = secretsIn
 				secrets[app.Name] = v
 
 				// Create Vault client and store secrets
