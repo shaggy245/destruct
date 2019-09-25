@@ -3,9 +3,9 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/hashicorp/vault/api"
@@ -94,16 +94,12 @@ func main() {
 			Name:      "store",
 			Aliases:   []string{"s"},
 			Usage:     "Store secrets",
-			ArgsUsage: "[jsonified secrets]",
+			ArgsUsage: "secrets",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "vault-addr, a",
 					Value: "https://127.0.0.1:8200",
 					Usage: "Vault service hostname/IP and port",
-				},
-				cli.StringSliceFlag{
-					Name:  "secret, s",
-					Usage: "Comma-separated name:secret pair",
 				},
 				cli.BoolFlag{
 					Name:  "insecure, k",
@@ -112,27 +108,32 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				secrets := make(map[string]interface{})
+				var secretsIn string
 
 				// Require at least one secret to store
-				if len(c.StringSlice("secret")) == 0 {
-					return errors.New("At least one comma-separated key,value secret is required to store")
+				// This can be either piped input or arg input
+				info, err := os.Stdin.Stat()
+				if err != nil {
+					return err
+				}
+				// Verify that input is either..
+				// from an os.ModeCharDevice and is not empty
+				// or was included as a cli arg
+				if (info.Mode()&os.ModeCharDevice != 0 || info.Size() <= 0) && len(c.Args()) == 0 {
+					return errors.New("Secrets input is required.")
+				} else if info.Size() > 0 {
+					readIn, err := ioutil.ReadAll(os.Stdin)
+					if err != nil {
+						log.Fatal(err)
+					}
+					secretsIn = strings.TrimSuffix(string(readIn), "\n")
+				} else {
+					secretsIn = strings.Join(c.Args(), " ")
 				}
 
 				// Create secrets map to write to vault
-				for i, sec := range c.StringSlice("secret") {
-					kv := strings.Split(sec, ",")
-					if len(kv) > 2 {
-						// There were too many commas to split on. Error for now...
-						return errors.New("Secret key,value cannot contain more than one comma.")
-					} else if len(kv) == 1 {
-						// There was no comma as key,value separator; treat as secret
-						var v interface{} = kv[0]
-						secrets[strconv.Itoa(i)] = v
-					} else {
-						var v interface{} = kv[1]
-						secrets[kv[0]] = v
-					}
-				}
+				var v interface{} = secretsIn
+				secrets[app.Name] = v
 
 				// Create Vault client and store secrets
 				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), "")
@@ -148,9 +149,10 @@ func main() {
 			},
 		},
 		{
-			Name:    "retrieve",
-			Aliases: []string{"r"},
-			Usage:   "Retrieve secrets",
+			Name:      "retrieve",
+			Aliases:   []string{"r"},
+			Usage:     "Retrieve secrets",
+			ArgsUsage: "token",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "vault-addr, a",
@@ -161,13 +163,12 @@ func main() {
 					Name:  "insecure, k",
 					Usage: "Allow invalid SSL cert on Vault service",
 				},
-				cli.StringFlag{
-					Name:  "token, t",
-					Usage: "Single-use Vault `token`",
-				},
 			},
 			Action: func(c *cli.Context) error {
-				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), c.String("token"))
+				if c.NArg() == 0 {
+					return errors.New("Token is required")
+				}
+				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), c.Args().Get(0))
 				if err != nil {
 					return err
 				}
