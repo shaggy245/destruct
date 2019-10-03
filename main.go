@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/vault/api"
+	"github.com/mitchellh/go-homedir"
 	"github.com/urfave/cli"
 )
 
@@ -92,6 +93,10 @@ func main() {
 	app.Name = "destruct"
 	app.Usage = "Store or access Vault secrets that will auto-delete after being accessed."
 	cubbyPath := "cubbyhole/" + app.Name
+	tokenHelper, homeErr := homedir.Expand("~/.vault-token")
+	if homeErr != nil {
+		tokenHelper = ""
+	}
 
 	app.Commands = []cli.Command{
 		{
@@ -102,9 +107,15 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:   "vault-addr, a",
+					Usage:  "Vault service hostname/IP and port",
 					EnvVar: "VAULT_ADDR",
 					Value:  "https://127.0.0.1:8200",
-					Usage:  "Vault service hostname/IP and port",
+				},
+				cli.StringFlag{
+					Name:     "token, t",
+					Usage:    "Vault token with access to create self-destructing token",
+					FilePath: tokenHelper,
+					EnvVar:   "VAULT_TOKEN",
 				},
 				cli.BoolFlag{
 					Name:  "insecure, k",
@@ -141,7 +152,7 @@ func main() {
 				secrets[app.Name] = v
 
 				// Create Vault client and store secrets
-				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), "")
+				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), c.String("token"))
 				if err != nil {
 					return err
 				}
@@ -161,9 +172,9 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:   "vault-addr, a",
+					Usage:  "Vault service hostname/IP and port",
 					EnvVar: "VAULT_ADDR",
 					Value:  "https://127.0.0.1:8200",
-					Usage:  "Vault service hostname/IP and port",
 				},
 				cli.BoolFlag{
 					Name:  "insecure, k",
@@ -194,8 +205,8 @@ func main() {
 		return nil
 	}
 
-	err := app.Run(os.Args)
-	if err != nil {
-		log.Fatal(err)
+	cliErr := app.Run(os.Args)
+	if cliErr != nil {
+		log.Fatal(cliErr)
 	}
 }
