@@ -19,13 +19,17 @@ func Store(c *api.Client, cubbyPath string, secrets map[string]interface{}) (str
 
 	// Create 2-use token
 	tcr := &api.TokenCreateRequest{
-		Metadata:        map[string]string{"created by": "destruct"},
-		TTL:             "24h",
-		ExplicitMaxTTL:  "24h",
-		NoParent:        true,
-		NoDefaultPolicy: true,
-		NumUses:         2,
-		Type:            "service",
+		Metadata:       map[string]string{"created by": "destruct"},
+		TTL:            "24h",
+		ExplicitMaxTTL: "24h",
+		/* Temporarily leaving this here since i want to revisit using a policy
+				that is more restrictive than
+		    NoParent:        true,
+				NoDefaultPolicy: true,
+		*/
+		Policies: []string{"default"},
+		NumUses:  2,
+		Type:     "service",
 	}
 	wrapsecret, err := c.Auth().Token().Create(tcr)
 	if err != nil {
@@ -97,9 +101,10 @@ func main() {
 			ArgsUsage: "secrets",
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:  "vault-addr, a",
-					Value: "https://127.0.0.1:8200",
-					Usage: "Vault service hostname/IP and port",
+					Name:   "vault-addr, a",
+					EnvVar: "VAULT_ADDR",
+					Value:  "https://127.0.0.1:8200",
+					Usage:  "Vault service hostname/IP and port",
 				},
 				cli.BoolFlag{
 					Name:  "insecure, k",
@@ -155,9 +160,10 @@ func main() {
 			ArgsUsage: "token",
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:  "vault-addr, a",
-					Value: "https://127.0.0.1:8200",
-					Usage: "Vault service hostname/IP and port",
+					Name:   "vault-addr, a",
+					EnvVar: "VAULT_ADDR",
+					Value:  "https://127.0.0.1:8200",
+					Usage:  "Vault service hostname/IP and port",
 				},
 				cli.BoolFlag{
 					Name:  "insecure, k",
