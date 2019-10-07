@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/vault/api"
+	"github.com/mitchellh/go-homedir"
 	"github.com/urfave/cli"
 )
 
@@ -19,13 +20,17 @@ func Store(c *api.Client, cubbyPath string, secrets map[string]interface{}) (str
 
 	// Create 2-use token
 	tcr := &api.TokenCreateRequest{
-		Metadata:        map[string]string{"created by": "destruct"},
-		TTL:             "24h",
-		ExplicitMaxTTL:  "24h",
-		NoParent:        true,
-		NoDefaultPolicy: true,
-		NumUses:         2,
-		Type:            "service",
+		Metadata:       map[string]string{"created by": "destruct"},
+		TTL:            "24h",
+		ExplicitMaxTTL: "24h",
+		/* Temporarily leaving this here since i want to revisit using a policy
+				that is more restrictive than
+		    NoParent:        true,
+				NoDefaultPolicy: true,
+		*/
+		Policies: []string{"default"},
+		NumUses:  2,
+		Type:     "service",
 	}
 	wrapsecret, err := c.Auth().Token().Create(tcr)
 	if err != nil {
@@ -88,6 +93,10 @@ func main() {
 	app.Name = "destruct"
 	app.Usage = "Store or access Vault secrets that will auto-delete after being accessed."
 	cubbyPath := "cubbyhole/" + app.Name
+	tokenHelper, homeErr := homedir.Expand("~/.vault-token")
+	if homeErr != nil {
+		tokenHelper = ""
+	}
 
 	app.Commands = []cli.Command{
 		{
@@ -97,9 +106,16 @@ func main() {
 			ArgsUsage: "secrets",
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:  "vault-addr, a",
-					Value: "https://127.0.0.1:8200",
-					Usage: "Vault service hostname/IP and port",
+					Name:   "vault-addr, a",
+					Usage:  "Vault service hostname/IP and port",
+					EnvVar: "VAULT_ADDR",
+					Value:  "https://127.0.0.1:8200",
+				},
+				cli.StringFlag{
+					Name:     "token, t",
+					Usage:    "Vault token with access to create self-destructing token",
+					FilePath: tokenHelper,
+					EnvVar:   "VAULT_TOKEN",
 				},
 				cli.BoolFlag{
 					Name:  "insecure, k",
@@ -136,7 +152,7 @@ func main() {
 				secrets[app.Name] = v
 
 				// Create Vault client and store secrets
-				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), "")
+				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), c.String("token"))
 				if err != nil {
 					return err
 				}
@@ -155,9 +171,10 @@ func main() {
 			ArgsUsage: "token",
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:  "vault-addr, a",
-					Value: "https://127.0.0.1:8200",
-					Usage: "Vault service hostname/IP and port",
+					Name:   "vault-addr, a",
+					Usage:  "Vault service hostname/IP and port",
+					EnvVar: "VAULT_ADDR",
+					Value:  "https://127.0.0.1:8200",
 				},
 				cli.BoolFlag{
 					Name:  "insecure, k",
@@ -188,8 +205,8 @@ func main() {
 		return nil
 	}
 
-	err := app.Run(os.Args)
-	if err != nil {
-		log.Fatal(err)
+	cliErr := app.Run(os.Args)
+	if cliErr != nil {
+		log.Fatal(cliErr)
 	}
 }
