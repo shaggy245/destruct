@@ -181,7 +181,7 @@ func main() {
 				if err != nil {
 					return err
 				}
-				fmt.Println(retrievedSecrets)
+				fmt.Println(retrievedSecrets[app.Name])
 				return nil
 			},
 		},
