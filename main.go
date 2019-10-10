@@ -13,48 +13,34 @@ import (
 	"github.com/urfave/cli"
 )
 
-func Store(c *api.Client, cubbyPath string, secrets map[string]interface{}) (string, error) {
-	// Wrap arbitrary json in Vault and return single-use wrapping token
-	// To wrap, user must have access to create a 2-use token, login w/ the token
-	// and write secrets to the token's cubbyhole
+func Store(c *api.Client, secrets map[string]interface{}) (string, error) {
+	// Wrap arbitrary string-data in Vault and return single-use wrapping token
+	// Use the Vault response-wrapping features
+	wrapPath := "sys/wrapping/wrap"
 
-	// Create 2-use token
-	tcr := &api.TokenCreateRequest{
-		Metadata:       map[string]string{"created by": "destruct"},
-		TTL:            "24h",
-		ExplicitMaxTTL: "24h",
-		/* Temporarily leaving this here since i want to revisit using a policy
-				that is more restrictive than
-		    NoParent:        true,
-				NoDefaultPolicy: true,
-		*/
-		Policies: []string{"default"},
-		NumUses:  2,
-		Type:     "service",
-	}
-	wrapsecret, err := c.Auth().Token().Create(tcr)
-	if err != nil {
-		fmt.Println(err)
-		return "", err
-	}
-	wrapToken := wrapsecret.Auth.ClientToken
-	// Update client w/ new token
-	c.SetToken(wrapToken)
-	// Write data to cubbyhole
-	_, err = c.Logical().Write(cubbyPath, secrets)
+	// Determine wrapped secrets ttl
+	c.SetWrappingLookupFunc(wrapItUp)
+
+	wrapped, err := c.Logical().Write(wrapPath, secrets)
 	if err != nil {
 		return "", err
 	}
-	return wrapToken, err
+
+	return wrapped.WrapInfo.Token, err
 }
 
-func Retrieve(c *api.Client, cubbyPath string) (map[string]interface{}, error) {
-	// Retrieve data stored in cubbyPath for the supplied Vault client
-	secrets, err := c.Logical().Read(cubbyPath)
+func Retrieve(c *api.Client, token string) (map[string]interface{}, error) {
+	// Retrieve data stored in token's wrapping path for the supplied Vault client/token
+	secrets, err := c.Logical().Unwrap(token)
 	if err != nil {
 		return nil, err
 	}
 	return secrets.Data, nil
+}
+
+func wrapItUp(operation, path string) string {
+	wrapTime := "360h"
+	return wrapTime
 }
 
 func createVaultClient(vAddress string, insecure bool, token string) (*api.Client, error) {
@@ -91,8 +77,7 @@ func main() {
 	// Handle CLI input/opts
 	app := cli.NewApp()
 	app.Name = "destruct"
-	app.Usage = "Store or access Vault secrets that will auto-delete after being accessed."
-	cubbyPath := "cubbyhole/" + app.Name
+	app.Usage = "Store or retrieve Vault secrets that will auto-delete after being retrieved once."
 	tokenHelper, homeErr := homedir.Expand("~/.vault-token")
 	if homeErr != nil {
 		tokenHelper = ""
@@ -156,7 +141,7 @@ func main() {
 				if err != nil {
 					return err
 				}
-				tempToken, err := Store(client, cubbyPath, secrets)
+				tempToken, err := Store(client, secrets)
 				if err != nil {
 					return err
 				}
@@ -185,16 +170,19 @@ func main() {
 				if c.NArg() == 0 {
 					return errors.New("Token is required")
 				}
-				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), c.Args().Get(0))
+
+				token := c.Args().Get(0)
+
+				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), token)
 				if err != nil {
 					return err
 				}
 
-				retrievedSecrets, err := Retrieve(client, cubbyPath)
+				retrievedSecrets, err := Retrieve(client, token)
 				if err != nil {
 					return err
 				}
-				fmt.Println(retrievedSecrets)
+				fmt.Println(retrievedSecrets[app.Name])
 				return nil
 			},
 		},
