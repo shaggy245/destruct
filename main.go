@@ -14,7 +14,8 @@ import (
 )
 
 func Store(c *api.Client, secrets map[string]interface{}) (string, error) {
-	// Wrap arbitrary json in Vault and return single-use wrapping token
+	// Wrap arbitrary string-data in Vault and return single-use wrapping token
+	// Use the Vault response-wrapping features
 	wrapPath := "sys/wrapping/wrap"
 
 	// Determine wrapped secrets ttl
@@ -38,7 +39,7 @@ func Retrieve(c *api.Client, token string) (map[string]interface{}, error) {
 }
 
 func wrapItUp(operation, path string) string {
-	wrapTime := "24h"
+	wrapTime := "360h"
 	return wrapTime
 }
 
@@ -76,7 +77,7 @@ func main() {
 	// Handle CLI input/opts
 	app := cli.NewApp()
 	app.Name = "destruct"
-	app.Usage = "Store or access Vault secrets that will auto-delete after being accessed."
+	app.Usage = "Store or retrieve Vault secrets that will auto-delete after being retrieved once."
 	tokenHelper, homeErr := homedir.Expand("~/.vault-token")
 	if homeErr != nil {
 		tokenHelper = ""
