@@ -74,10 +74,12 @@ func createVaultClient(vAddress string, insecure bool, token string) (*api.Clien
 }
 
 func main() {
-	// Handle CLI input/opts
+	// CLI config
 	app := cli.NewApp()
+	app.Version = "1.0.0"
 	app.Name = "destruct"
 	app.Usage = "Store or retrieve Vault secrets that will auto-delete after being retrieved once."
+
 	tokenHelper, homeErr := homedir.Expand("~/.vault-token")
 	if homeErr != nil {
 		tokenHelper = ""
