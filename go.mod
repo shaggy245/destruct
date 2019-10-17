@@ -1,4 +1,4 @@
-module destruct
+module github.com/shaggy245/destruct
 
 go 1.13
 
