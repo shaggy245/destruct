@@ -33,7 +33,7 @@ GLOBAL OPTIONS:
 
 ### Store
 #### Vault Token Requirements
-`destruct store` requires that the user has obtained a Vault token which is passed into `destruct store` by the `--token` cli flag, the `$VAULT_TOKEN` environment variable, or the `"~/.vault-token" file. If already using Vault's CLI tool, `vault login` (<link>https://www.vaultproject.io/docs/commands/login.html) saves the resulting Vault token in `~/.vault-token`.
+`destruct store` requires that the user has obtained a Vault token which is passed into `destruct store` by the `--token` cli flag, the `$VAULT_TOKEN` environment variable, or the `~/.vault-token` file. If already using Vault's CLI tool, `vault login` ([Vault login](https://www.vaultproject.io/docs/commands/login.html)) saves the resulting Vault token in `~/.vault-token`.
 
 This Vault token must have an attached Vault policy that allows `update` access to `/sys/wrapping/unwrap`, which should be provided by the default Vault policy.
 
@@ -83,7 +83,7 @@ map[destruct:some secrets]
 ```
 
 #### Retrieve via Curl
-Destruct retrievals can also be done via HTTP POST by passing the token as an `X-Vault-Token` HTTP header to the Vault `sys/wrapping/unwrap` endpoint. The response will be JSON-formatted, and the secrets will be returned in the `"data":{"destruct":` keys.
+Destruct retrievals can also be done via HTTP POST by passing the token as an `X-Vault-Token` HTTP header to the Vault `sys/wrapping/unwrap` endpoint. The response will be JSON-formatted, and the secrets will be returned in the `"data":{"destruct":` key.
 
 Example:
 ```
