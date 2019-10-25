@@ -41,6 +41,7 @@ This Vault token must have an attached Vault policy that allows `update` access 
 A remote Vault address can be passed into Destruct by the `--vault-addr` cli flag or set as the `$VAULT_ADDR` environment variable.
 
 #### Command
+Shared secrets can either be piped into the `destruct store` command or provided as an argument (see <examples>).
 ```
 NAME:
    destruct store - Store secrets
@@ -54,10 +55,13 @@ OPTIONS:
    --insecure, -k                Allow invalid SSL cert on Vault service
 ```
 
-Example:
+Examples:
 ```
 $ destruct store --vault-addr "http://127.0.0.1:1234" "some secrets"
 s.GH6YnEqETnF0CcBXeQ5IUfqF
+
+$ aws iam create-access-key --user-name aws-user-name | destruct store --vault-addr "http://127.0.0.1:1234"
+s.ZR0nda4aGaimzdIviroL9o1o
 ```
 
 ### Retrieve
