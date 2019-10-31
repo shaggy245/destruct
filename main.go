@@ -145,7 +145,6 @@ func main() {
 	tokenHelper, err := homedir.Expand("~/.vault-token")
 	if err != nil {
 		tokenHelper = ""
-		err = nil
 	}
 
 	app.Commands = []cli.Command{
