@@ -10,6 +10,15 @@ This tool aims to share secrets so that shared secrets are:
 * Only accessible via a single-use token
 * Deleted from the secure system after being accessed once or after expiring (15 day TTL)
 
+## Getting Started
+### Installation
+`go get github.com/shaggy245/destruct`
+
+### Requirements
+* A reachable Hashicorp Vault service running Vault 0.8 or later
+* `destruct store` requires that you supply a Vault token ([More info here](#store-token-requirements))
+* `destruct retrieve` requires that you supply the single-use token generated when the secrets were stored
+
 ## Usage
 ```
 NAME:
@@ -32,8 +41,12 @@ GLOBAL OPTIONS:
 ```
 
 ### Store
-#### Vault Token Requirements
-`destruct store` requires that the user has obtained a Vault token which is passed into `destruct store` by the `--token` cli flag, the `$VAULT_TOKEN` environment variable, or the `~/.vault-token` file. If already using Vault's CLI tool, `vault login` ([Vault login](https://www.vaultproject.io/docs/commands/login.html)) saves the resulting Vault token in `~/.vault-token`.
+#### Store Token Requirements
+`destruct store` requires that the user has obtained a Vault token which is passed into `destruct store` by the `--token` cli flag, the `$VAULT_TOKEN` environment variable, or the `~/.vault-token` file. 
+
+There are multiple ways to generate a Vault token. Examples include:
+* Using Vault's CLI tool to `vault login` ([Vault login](https://www.vaultproject.io/docs/commands/login.html)) which saves the resulting Vault token in a helper file  (`~/.vault-token` by default)
+* Logging into the Vault UI, navigating to the user icon in the upper-right corner, and selecting "Copy token"
 
 This Vault token must have an attached Vault policy that allows `update` access to `/sys/wrapping/unwrap`, which should be provided by the default Vault policy.
 
