@@ -19,6 +19,9 @@ This tool aims to share secrets so that shared secrets are:
 * `destruct store` requires that you supply a Vault token ([More info here](#store-token-requirements))
 * `destruct retrieve` requires that you supply the single-use token generated when the secrets were stored
 
+### Important Note
+Destruct secrets will expire after 15 days, can only be retrieved once, and will be permanently deleted from Vault if either of those events occur.
+
 ## Usage
 ```
 NAME:
@@ -54,7 +57,7 @@ This Vault token must have an attached Vault policy that allows `update` access 
 A remote Vault address can be passed into Destruct by the `--vault-addr` cli flag or set as the `$VAULT_ADDR` environment variable.
 
 #### Command
-Shared secrets can either be piped into the `destruct store` command or provided as an argument (see <examples>).
+Shared secrets can either be piped into the `destruct store` command or provided as an argument (see examples below).
 ```
 NAME:
    destruct store - Store secrets
@@ -78,8 +81,6 @@ s.ZR0nda4aGaimzdIviroL9o1o
 ```
 
 ### Retrieve
-Destruct secrets will expire after 15 days, can only be retrieved once, and will be permanently deleted from Vault if either of those events occur.
-
 #### Command
 ```
 NAME:
