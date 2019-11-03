@@ -73,6 +73,68 @@ func createVaultClient(vAddress string, insecure bool, token string) (*api.Clien
 	return client, nil
 }
 
+func cmdStore(c *cli.Context) error {
+	secrets := make(map[string]interface{})
+	var secretsIn string
+
+	// Require at least one secret to store
+	// This can be either piped input or arg input
+	info, err := os.Stdin.Stat()
+	if err != nil {
+		return err
+	}
+	// Verify that input is either..
+	// from an os.ModeCharDevice and is not empty
+	// or was included as a cli arg
+	if (info.Mode()&os.ModeCharDevice != 0 || info.Size() <= 0) && len(c.Args()) == 0 {
+		return errors.New("Secrets input is required.")
+	} else if info.Size() > 0 {
+		readIn, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			log.Fatal(err)
+		}
+		secretsIn = strings.TrimSuffix(string(readIn), "\n")
+	} else {
+		secretsIn = strings.Join(c.Args(), " ")
+	}
+
+	// Create secrets map to write to vault
+	var v interface{} = secretsIn
+	secrets[c.App.Name] = v
+
+	// Create Vault client and store secrets
+	client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), c.String("token"))
+	if err != nil {
+		return err
+	}
+	tempToken, err := Store(client, secrets)
+	if err != nil {
+		return err
+	}
+	fmt.Println(tempToken)
+	return nil
+}
+
+func cmdRetrieve(c *cli.Context) error {
+	if c.NArg() == 0 {
+		return errors.New("Token is required")
+	}
+
+	token := c.Args().Get(0)
+
+	client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), token)
+	if err != nil {
+		return err
+	}
+
+	retrievedSecrets, err := Retrieve(client, token)
+	if err != nil {
+		return err
+	}
+	fmt.Println(retrievedSecrets[c.App.Name])
+	return nil
+}
+
 func main() {
 	// CLI config
 	app := cli.NewApp()
@@ -80,8 +142,8 @@ func main() {
 	app.Name = "destruct"
 	app.Usage = "Store or retrieve Vault secrets that will auto-delete after being retrieved once."
 
-	tokenHelper, homeErr := homedir.Expand("~/.vault-token")
-	if homeErr != nil {
+	tokenHelper, err := homedir.Expand("~/.vault-token")
+	if err != nil {
 		tokenHelper = ""
 	}
 
@@ -109,47 +171,7 @@ func main() {
 					Usage: "Allow invalid SSL cert on Vault service",
 				},
 			},
-			Action: func(c *cli.Context) error {
-				secrets := make(map[string]interface{})
-				var secretsIn string
-
-				// Require at least one secret to store
-				// This can be either piped input or arg input
-				info, err := os.Stdin.Stat()
-				if err != nil {
-					return err
-				}
-				// Verify that input is either..
-				// from an os.ModeCharDevice and is not empty
-				// or was included as a cli arg
-				if (info.Mode()&os.ModeCharDevice != 0 || info.Size() <= 0) && len(c.Args()) == 0 {
-					return errors.New("Secrets input is required.")
-				} else if info.Size() > 0 {
-					readIn, err := ioutil.ReadAll(os.Stdin)
-					if err != nil {
-						log.Fatal(err)
-					}
-					secretsIn = strings.TrimSuffix(string(readIn), "\n")
-				} else {
-					secretsIn = strings.Join(c.Args(), " ")
-				}
-
-				// Create secrets map to write to vault
-				var v interface{} = secretsIn
-				secrets[app.Name] = v
-
-				// Create Vault client and store secrets
-				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), c.String("token"))
-				if err != nil {
-					return err
-				}
-				tempToken, err := Store(client, secrets)
-				if err != nil {
-					return err
-				}
-				fmt.Println(tempToken)
-				return nil
-			},
+			Action: cmdStore,
 		},
 		{
 			Name:      "retrieve",
@@ -168,25 +190,7 @@ func main() {
 					Usage: "Allow invalid SSL cert on Vault service",
 				},
 			},
-			Action: func(c *cli.Context) error {
-				if c.NArg() == 0 {
-					return errors.New("Token is required")
-				}
-
-				token := c.Args().Get(0)
-
-				client, err := createVaultClient(c.String("vault-addr"), c.Bool("insecure"), token)
-				if err != nil {
-					return err
-				}
-
-				retrievedSecrets, err := Retrieve(client, token)
-				if err != nil {
-					return err
-				}
-				fmt.Println(retrievedSecrets[app.Name])
-				return nil
-			},
+			Action: cmdRetrieve,
 		},
 	}
 
@@ -195,8 +199,8 @@ func main() {
 		return nil
 	}
 
-	cliErr := app.Run(os.Args)
-	if cliErr != nil {
-		log.Fatal(cliErr)
+	err = app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
 	}
 }
