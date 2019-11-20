@@ -13,15 +13,14 @@ import (
 	"github.com/urfave/cli"
 )
 
-func Store(c *api.Client, secrets map[string]interface{}) (string, error) {
+func Store(c *api.Client, ttl string, secrets map[string]interface{}) (string, error) {
 	// Wrap arbitrary string-data in Vault and return single-use wrapping token
 	// Use the Vault response-wrapping features
-	wrapPath := "sys/wrapping/wrap"
 
-	// Determine wrapped secrets ttl
-	c.SetWrappingLookupFunc(wrapItUp)
+	// Set wrapped secrets ttl
+	c.SetWrappingLookupFunc(wrapItUp(ttl))
 
-	wrapped, err := c.Logical().Write(wrapPath, secrets)
+	wrapped, err := c.Logical().Write("sys/wrapping/wrap", secrets)
 	if err != nil {
 		return "", err
 	}
@@ -38,9 +37,10 @@ func Retrieve(c *api.Client, token string) (map[string]interface{}, error) {
 	return secrets.Data, nil
 }
 
-func wrapItUp(operation, path string) string {
-	wrapTime := "360h"
-	return wrapTime
+func wrapItUp(ttl string) func(string, string) string {
+	return func(operation, path string) string {
+		return ttl
+	}
 }
 
 func createVaultClient(vAddress string, insecure bool, token string) (*api.Client, error) {
@@ -107,7 +107,7 @@ func cmdStore(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	tempToken, err := Store(client, secrets)
+	tempToken, err := Store(client, c.String("ttl"), secrets)
 	if err != nil {
 		return err
 	}
@@ -165,6 +165,11 @@ func main() {
 					Usage:    "Vault token with access to create self-destructing token",
 					FilePath: tokenHelper,
 					EnvVar:   "VAULT_TOKEN",
+				},
+				cli.StringFlag{
+					Name:  "ttl",
+					Usage: "Time-to-live of the shared secrets in seconds (s), minutes (m), or hours (h)",
+					Value: "360h",
 				},
 				cli.BoolFlag{
 					Name:  "insecure, k",
