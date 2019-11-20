@@ -88,14 +88,14 @@ func cmdStore(c *cli.Context) error {
 	// or was included as a cli arg
 	if (info.Mode()&os.ModeCharDevice != 0 || info.Size() <= 0) && len(c.Args()) == 0 {
 		return errors.New("Secrets input is required.")
-	} else if info.Size() > 0 {
+	} else if len(c.Args()) > 0 {
+		secretsIn = strings.Join(c.Args(), " ")
+	} else {
 		readIn, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
 			log.Fatal(err)
 		}
 		secretsIn = strings.TrimSuffix(string(readIn), "\n")
-	} else {
-		secretsIn = strings.Join(c.Args(), " ")
 	}
 
 	// Create secrets map to write to vault
@@ -138,7 +138,7 @@ func cmdRetrieve(c *cli.Context) error {
 func main() {
 	// CLI config
 	app := cli.NewApp()
-	app.Version = "1.0.0"
+	app.Version = "1.1.0"
 	app.Name = "destruct"
 	app.Usage = "Store or retrieve Vault secrets that will auto-delete after being retrieved once."
 
