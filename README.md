@@ -12,7 +12,7 @@ This tool aims to share secrets so that shared secrets are:
 
 ## Getting Started
 ### Installation
-`go get github.com/shaggy245/destruct...`
+`go get github.com/shaggy245/destruct/...`
 
 ### Requirements
 * A reachable Hashicorp Vault service running Vault 0.8 or later
