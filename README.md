@@ -27,6 +27,21 @@ To use current master:
 * `destruct store` requires that you supply a Vault token ([More info here](#store-token-requirements))
 * `destruct retrieve` requires that you supply the single-use token generated when the secrets were stored
 
+### Destruct Installation on Windows
+1) Windows installation file can be fournd [here](https://github.com/shaggy245/destruct/releases/download/v1.1.0/destruct_1.1.0_windows_amd64.zip).
+2) Extract .zip file to folder location of your choice. In this example the file is being extracted to a new folder location C:\Program Files\Destruct
+3) Add a system environmental variable for destruct.
+    - Open *Control Panel*
+    - Select *System*
+    - Select *Advanced system settings*
+    - Select *Advanced* tab and *Environmental Variables* button at the bottom of the window.
+    - Under the *System variables*, double click on *Path* and select *New*.
+    - Add the folder path you saved destruct under. In this case **C:\Program Files\Destruct** was added to Path. Click OK to exit.
+4) Destruct is now installed. To test, launch a command prompt.
+    - Windows button + r to bring up the*Run*window.
+    - Type cmd in the Run window and ok. A command prompt will launch.
+    - Type***destruct***and the following message should appear, ```This message will self-destruct```
+    
 ### Important Note
 Destruct secrets will expire after 15 days by default, can only be retrieved once, and will be permanently deleted from Vault if either of those events occur.
 
