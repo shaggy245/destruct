@@ -77,24 +77,14 @@ func cmdStore(c *cli.Context) error {
 	secrets := make(map[string]interface{})
 	var secretsIn string
 
-	// Require at least one secret to store
-	// This can be either piped input or arg input
-	info, err := os.Stdin.Stat()
-	if err != nil {
-		return err
-	}
-	// Verify that input is either..
-	// from an os.ModeCharDevice and is not empty
-	// or was included as a cli arg
-	if (info.Mode()&os.ModeCharDevice != 0 || info.Size() <= 0) && len(c.Args()) == 0 {
-		return errors.New("Secrets input is required.")
-	} else if len(c.Args()) > 0 {
+	if len(c.Args()) > 0 {
 		secretsIn = strings.Join(c.Args(), " ")
 	} else {
 		readIn, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		secretsIn = strings.TrimSuffix(string(readIn), "\n")
 	}
 
