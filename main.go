@@ -128,7 +128,7 @@ func cmdRetrieve(c *cli.Context) error {
 func main() {
 	// CLI config
 	app := cli.NewApp()
-	app.Version = "1.1.0"
+	app.Version = "1.2.0"
 	app.Name = "destruct"
 	app.Usage = "Store or retrieve Vault secrets that will auto-delete after being retrieved once."
 
